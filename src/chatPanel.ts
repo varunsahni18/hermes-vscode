@@ -136,14 +136,33 @@ export class ChatPanel {
         }
 
         const healthy = await this.server.checkHealth();
-        if (!healthy && this.config.autoStartServer) {
+        if (healthy) {
+            // Server already running — try to discover token
+            await this.server.discoverToken();
+            // If we can't find the token (macOS doesn't show env in ps),
+            // restart the server with our own token
+            if (!this.server.token) {
+                // Test if the server accepts connections without a token
+                const ok = await this.server.testNoTokenWs();
+                if (!ok) {
+                    // Kill and restart with our token
+                    await this.server.killExistingServer();
+                    const started = await this.server.start();
+                    if (!started) {
+                        this.postMessage({ type: 'serverError', error: 'Failed to restart Hermes server with auth token.' });
+                        return;
+                    }
+                }
+            }
+        } else if (this.config.autoStartServer) {
             const started = await this.server.start();
             if (!started) {
                 this.postMessage({ type: 'serverError', error: 'Failed to start Hermes server. Is hermes installed?' });
                 return;
             }
-        } else if (healthy) {
-            await this.server.discoverToken();
+        } else {
+            this.postMessage({ type: 'serverError', error: 'Hermes server is not running. Enable auto-start or run \'hermes serve\' manually.' });
+            return;
         }
 
         this.serverReady = true;

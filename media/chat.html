@@ -141,6 +141,7 @@
     let rpcId = 0;
     let pendingRpc = {};
     let isStreaming = false;
+    let wsConnected = false;
     let assistantEl = null;
     let thinkingEl = null;
     let thinkingText = '';
@@ -171,20 +172,30 @@
 
     // ── WebSocket ──
     function connectWS(url) {
+      console.log('[Hermes] Connecting to WS:', url);
       ws = new WebSocket(url);
+
       ws.onopen = () => {
-        console.log('WS connected');
+        console.log('[Hermes] WS connected, waiting for gateway.ready...');
+        // Fallback: if we don't get gateway.ready in 5s, show chat anyway
+        setTimeout(() => {
+          if (!wsConnected) {
+            console.log('[Hermes] No gateway.ready after 5s, showing chat anyway');
+            showChat();
+          }
+        }, 5000);
       };
       ws.onmessage = (event) => {
         const data = JSON.parse(event.data);
+        console.log('[Hermes] WS message:', data.method || data.id, data.params?.type || '');
         handleWsMessage(data);
       };
       ws.onerror = (err) => {
-        console.error('WS error', err);
-        showConnecting(false, 'WebSocket connection failed');
+        console.error('[Hermes] WS error', err);
+        showConnecting(false, 'WebSocket connection failed. Check that hermes serve is running.');
       };
-      ws.onclose = () => {
-        console.log('WS closed');
+      ws.onclose = (ev) => {
+        console.log('[Hermes] WS closed:', ev.code, ev.reason);
         // Try reconnect after delay
         setTimeout(() => { if (!ws || ws.readyState === WebSocket.CLOSED) connectWS(url); }, 3000);
       };
@@ -206,6 +217,7 @@
 
         switch (t) {
           case 'gateway.ready':
+            wsConnected = true;
             showChat();
             break;
           case 'session.info':

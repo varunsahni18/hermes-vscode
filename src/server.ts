@@ -36,12 +36,11 @@ export class HermesServer {
         return this.sessionToken;
     }
 
-    setToken(token: string): void {
-        this.sessionToken = token;
-    }
-
     get wsUrlWithToken(): string {
-        return `${this.wsUrl}?token=${encodeURIComponent(this.sessionToken)}`;
+        if (this.sessionToken) {
+            return `${this.wsUrl}?token=${encodeURIComponent(this.sessionToken)}`;
+        }
+        return this.wsUrl;
     }
 
     async checkHealth(): Promise<boolean> {
@@ -69,72 +68,98 @@ export class HermesServer {
     async ensureRunning(): Promise<boolean> {
         const healthy = await this.checkHealth();
         if (healthy) {
-            // Server already running — try to discover the token
             await this.discoverToken();
-            return true;
+            if (this.sessionToken) {
+                return true;
+            }
+            // Can't discover token — restart with our own
+            console.log('[Hermes] Found running server but could not discover token. Restarting...');
+            await this.killExistingServer();
+            return this.start();
         }
-
-        // Start the server
         return this.start();
     }
 
+    async killExistingServer(): Promise<void> {
+        try {
+            cp.execSync('pkill -f "hermes serve"', { timeout: 3000 });
+        } catch {
+            // ignore
+        }
+        await new Promise(r => setTimeout(r, 2000));
+    }
+
     async start(): Promise<boolean> {
-        // Generate a known token
-        this.sessionToken = 'vscode-' + Math.random().toString(36).substring(2, 15) + Date.now().toString(36);
+        this.sessionToken = 'hvs-' + Math.random().toString(36).substring(2, 8) + '-' + Date.now().toString(36);
+
+        console.log('[Hermes] Starting server with token:', this.sessionToken);
 
         return new Promise((resolve) => {
             const env = { ...process.env, HERMES_DASHBOARD_SESSION_TOKEN: this.sessionToken };
-            this.serverProcess = cp.spawn('hermes', ['serve', '--port', String(this.port), '--host', this.host], {
+            this.serverProcess = cp.spawn('hermes', ['serve', '--port', String(this.port)], {
                 env,
                 stdio: ['ignore', 'pipe', 'pipe'],
-                detached: false,
             });
 
             let started = false;
+            let healthInterval: NodeJS.Timeout;
+
             const timeout = setTimeout(() => {
                 if (!started) {
                     resolve(false);
                 }
-            }, 10000);
+            }, 15000);
 
-            this.serverProcess.stdout?.on('data', (data) => {
+            const onData = async (data: Buffer) => {
                 const text = data.toString();
-                if (!started && (text.includes('listening') || text.includes('started') || text.includes('Uvicorn'))) {
+                console.log('[Hermes] server output:', text.slice(0, 200));
+                if (!started && (text.includes('listening') || text.includes('BACKEND_READY') || text.includes('Uvicorn') || text.includes('startup'))) {
                     started = true;
                     clearTimeout(timeout);
-                    // Wait a moment for the server to be ready
-                    setTimeout(async () => {
-                        const healthy = await this.checkHealth();
-                        resolve(healthy);
-                    }, 2000);
+                    clearInterval(healthInterval);
+                    await new Promise(r => setTimeout(r, 2000));
+                    const healthy = await this.checkHealth();
+                    console.log('[Hermes] Health after start:', healthy);
+                    resolve(healthy);
                 }
-            });
+            };
 
-            this.serverProcess.stderr?.on('data', (data) => {
-                const text = data.toString();
-                if (!started && (text.includes('listening') || text.includes('started') || text.includes('Uvicorn'))) {
-                    started = true;
-                    clearTimeout(timeout);
-                    setTimeout(async () => {
-                        const healthy = await this.checkHealth();
-                        resolve(healthy);
-                    }, 2000);
-                }
-            });
+            this.serverProcess.stdout?.on('data', onData);
+            this.serverProcess.stderr?.on('data', onData);
 
-            this.serverProcess.on('error', () => {
+            this.serverProcess.on('error', (err) => {
+                console.error('[Hermes] Spawn error:', err);
                 if (!started) {
                     clearTimeout(timeout);
+                    clearInterval(healthInterval);
                     resolve(false);
                 }
             });
 
-            this.serverProcess.on('exit', () => {
+            this.serverProcess.on('exit', (code) => {
+                console.log('[Hermes] Server exited with code:', code);
                 if (!started) {
                     clearTimeout(timeout);
+                    clearInterval(healthInterval);
                     resolve(false);
                 }
             });
+
+            // Poll health endpoint every 2s as fallback
+            healthInterval = setInterval(async () => {
+                if (started) {
+                    clearInterval(healthInterval);
+                    return;
+                }
+                const healthy = await this.checkHealth();
+                if (healthy) {
+                    started = true;
+                    clearInterval(healthInterval);
+                    clearTimeout(timeout);
+                    console.log('[Hermes] Server detected via health poll');
+                    resolve(true);
+                }
+            }, 2000);
         });
     }
 
@@ -143,40 +168,50 @@ export class HermesServer {
             this.serverProcess.kill('SIGTERM');
             this.serverProcess = null;
         }
-        // Also try the hermes serve --stop command
-        cp.exec(`hermes serve --stop`, () => {});
+        try {
+            cp.execSync('hermes serve --stop', { timeout: 5000 });
+        } catch {
+            // ignore
+        }
     }
 
     async discoverToken(): Promise<void> {
-        // If the server is already running (started by hermes dashboard or CLI),
-        // we need the token. On loopback, we can try to connect without a token
-        // first, or check the env of the running process.
-        // For now, try an empty token — loopback mode may accept it in some configs
-        // If that fails, the user needs to start the server from the extension.
-        // A better approach: check if HERMES_DASHBOARD_SESSION_TOKEN is in our env
         const envToken = process.env.HERMES_DASHBOARD_SESSION_TOKEN;
         if (envToken) {
             this.sessionToken = envToken;
             return;
         }
-        // Try to get token from the server's process environment
+        // Read from dashboard.toml if it exists
         try {
-            const { execSync } = cp;
-            const procs = execSync('ps aux | grep "hermes serve" | grep -v grep', { encoding: 'utf8' });
-            const match = procs.match(/HERMES_DASHBOARD_SESSION_TOKEN=(\S+)/);
-            if (match) {
-                this.sessionToken = match[1];
-                return;
+            const fs = require('fs');
+            const path = require('path');
+            const dashToml = path.join(this.config.hermesHome, 'dashboard.toml');
+            if (fs.existsSync(dashToml)) {
+                const content = fs.readFileSync(dashToml, 'utf-8');
+                const m = content.match(/session_token\s*=\s*['"]?(\S+)['"]?/);
+                if (m) {
+                    this.sessionToken = m[1];
+                    return;
+                }
             }
         } catch {
-            // No process found
+            // ignore
         }
-        // Fallback: try without a token (some configs allow it)
+        // Can't discover — set empty so caller knows to restart
         this.sessionToken = '';
     }
 
+    async testNoTokenWs(): Promise<boolean> {
+        // Test if we can connect to the WS without a token
+        // by making an HTTP request to the health endpoint and checking
+        // if the server is in loopback mode (which may accept no-token)
+        // Actually, the WS auth requires a token even in loopback mode.
+        // So if we can't discover the token, return false to trigger restart.
+        return false;
+    }
+
     async listSessions(limit: number = 50): Promise<SessionInfo[]> {
-        return new Promise((resolve, resolve_) => {
+        return new Promise((resolve) => {
             const options: http.RequestOptions = {
                 hostname: this.host,
                 port: this.port,
@@ -210,7 +245,6 @@ export class HermesServer {
     }
 
     async listProfiles(): Promise<string[]> {
-        // Read profiles from the filesystem
         const fs = require('fs');
         const path = require('path');
         const profilesDir = path.join(this.config.hermesHome, 'profiles');
