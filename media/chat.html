@@ -20,58 +20,36 @@
       --error: #ef5350;
       --success: #4caf50;
       --muted: #888;
-      --radius: 8px;
+      --radius: 6px;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
     body {
-      font-family: var(--vscode-editor-font-family, 'SF Mono', Monaco, Menlo, monospace);
-      font-size: 13px; background: var(--bg); color: var(--fg);
-      height: 100vh; display: flex; flex-direction: column; overflow: hidden;
+      display: flex; flex-direction: column; height: 100vh;
+      font-family: var(--vscode-editor-font-family, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif);
+      font-size: 13px; color: var(--fg); background: var(--bg); overflow: hidden;
     }
-    #context-bar {
-      padding: 6px 12px; background: #252525; border-bottom: 1px solid var(--border);
-      font-size: 11px; color: var(--muted); display: flex; align-items: center;
-      gap: 10px; min-height: 28px; flex-shrink: 0;
-    }
-    #context-bar .badge {
-      background: var(--accent-dim); color: var(--bg); padding: 1px 6px;
-      border-radius: 3px; font-size: 10px; font-weight: 600;
-    }
-    #context-bar .path { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     #messages {
-      flex: 1; overflow-y: auto; padding: 16px; display: flex;
-      flex-direction: column; gap: 10px;
+      flex: 1; overflow-y: auto; padding: 12px; display: flex;
+      flex-direction: column; gap: 8px;
     }
-    #messages::-webkit-scrollbar { width: 6px; }
-    #messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
-    .msg {
-      max-width: 85%; padding: 10px 14px; border-radius: var(--radius);
-      line-height: 1.5; white-space: pre-wrap; word-break: break-word;
-    }
-    .msg.user { align-self: flex-end; background: var(--user-bubble); border-bottom-right-radius: 4px; }
-    .msg.assistant {
-      align-self: flex-start; background: var(--assistant-bubble);
-      border: 1px solid var(--border); border-bottom-left-radius: 4px;
-    }
-    .msg .role {
-      font-size: 10px; text-transform: uppercase; letter-spacing: 1px;
-      margin-bottom: 4px; color: var(--muted);
-    }
+    .msg { max-width: 85%; padding: 8px 14px; border-radius: var(--radius); white-space: pre-wrap; word-break: break-word; line-height: 1.5; }
+    .msg.user { background: var(--user-bubble); color: #fff; align-self: flex-end; }
+    .msg.assistant { background: var(--assistant-bubble); align-self: flex-start; }
+    .msg.assistant .role { font-size: 10px; color: var(--muted); margin-bottom: 4px; font-weight: 600; }
+    .msg.assistant .content { }
     .thinking {
-      background: var(--thinking-bg); border: 1px dashed var(--border);
-      border-radius: var(--radius); padding: 8px 14px; margin: 2px 0;
-      align-self: flex-start; max-width: 85%;
+      align-self: flex-start; background: var(--thinking-bg); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 6px 10px; font-size: 11px; color: var(--muted); max-width: 80%;
     }
-    .thinking .header { font-size: 11px; color: var(--accent-dim); cursor: pointer; user-select: none; }
-    .thinking .content { display: none; margin-top: 6px; font-size: 12px; color: var(--muted); white-space: pre-wrap; }
+    .thinking .header { cursor: pointer; font-weight: 600; }
+    .thinking .content { margin-top: 4px; display: none; white-space: pre-wrap; max-height: 200px; overflow-y: auto; }
     .thinking.open .content { display: block; }
     .tool-call {
-      background: var(--tool-bg); border: 1px solid var(--border);
-      border-left: 3px solid var(--accent-dim); border-radius: var(--radius);
-      padding: 8px 12px; margin: 2px 0; align-self: flex-start;
-      max-width: 90%; font-size: 12px;
+      align-self: flex-start; background: var(--tool-bg); border-left: 3px solid var(--accent);
+      padding: 6px 10px; border-radius: 4px; font-size: 12px; max-width: 80%;
     }
-    .tool-call .tool-name { color: var(--accent); font-weight: 600; }
+    .tool-call .tool-name { font-weight: 600; color: var(--accent-dim); cursor: pointer; }
     .tool-call .tool-detail { color: var(--muted); font-size: 11px; margin-top: 4px; display: none; white-space: pre-wrap; }
     .tool-call.expanded .tool-detail { display: block; }
     .status-line { align-self: center; font-size: 11px; color: var(--muted); font-style: italic; }
@@ -106,14 +84,11 @@
     .file-link { color: var(--accent-dim); text-decoration: underline; cursor: pointer; }
     .file-link:hover { color: var(--accent); }
     .error-msg { color: var(--error); padding: 8px 14px; border-radius: var(--radius); background: rgba(239,83,80,0.1); align-self: flex-start; }
-    .mode-selector {
-      display: flex; gap: 2px; background: var(--border); border-radius: 4px; padding: 1px;
+    .context-badge { font-size: 10px; padding: 1px 6px; border-radius: 3px; background: var(--border); color: var(--muted); margin-right: 6px; }
+    #context-bar {
+      padding: 4px 12px; font-size: 11px; color: var(--muted); border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; gap: 6px; flex-shrink: 0;
     }
-    .mode-selector button {
-      background: transparent; color: var(--muted); border: none;
-      padding: 2px 8px; font-size: 10px; cursor: pointer; border-radius: 3px;
-    }
-    .mode-selector button.active { background: var(--accent-dim); color: var(--bg); font-weight: 600; }
   </style>
 </head>
 <body>
@@ -123,7 +98,6 @@
   </div>
 
   <div id="context-bar" style="display:none">
-    <span class="badge" id="mode-badge">bypass</span>
     <span id="ctx-file" class="path"></span>
   </div>
 
@@ -136,19 +110,15 @@
 
   <script>
     const vscode = acquireVsCodeApi();
-    let ws = null;
     let currentSessionId = null;
-    let rpcId = 0;
-    let pendingRpc = {};
     let isStreaming = false;
-    let wsConnected = false;
     let assistantEl = null;
     let thinkingEl = null;
     let thinkingText = '';
     let assistantText = '';
     let currentFile = null;
     let currentCwd = '';
-    let mode = 'bypass';
+    let rpcCounter = 0;
 
     // ── Boot ──
     vscode.postMessage({ type: 'ensureServer' });
@@ -156,8 +126,12 @@
     window.addEventListener('message', (event) => {
       const msg = event.data;
       switch (msg.type) {
-        case 'serverReady': connectWS(msg.wsUrl); break;
+        case 'serverReady': onServerReady(); break;
         case 'serverError': showConnecting(false, msg.error); break;
+        case 'wsEvent': handleWsEvent(msg.data); break;
+        case 'wsError': addError(msg.error); break;
+        case 'wsClosed': console.log('[Hermes] WS closed by host'); break;
+        case 'wsRpcResult': console.log('[Hermes] RPC result:', msg); break;
         case 'contextUpdate': updateContext(msg.file, msg.cwd); break;
         case 'sessionContext': currentCwd = msg.cwd || currentCwd; currentFile = msg.file; break;
         case 'newSession': startNewSession(); break;
@@ -165,66 +139,31 @@
         case 'sendMessageAck': doSend(msg.text, msg.sessionId || currentSessionId); break;
         case 'interruptAck': doInterrupt(msg.sessionId); break;
         case 'slashCommandAck': doSlash(msg.command, msg.sessionId); break;
-        case 'sessionList': renderSessionList(msg.sessions); break;
-        case 'profileList': renderProfiles(msg.profiles); break;
+        case 'sessionList': break;
+        case 'profileList': break;
       }
     });
 
-    // ── WebSocket ──
-    function connectWS(url) {
-      console.log('[Hermes] Connecting to WS:', url);
-      ws = new WebSocket(url);
-
-      ws.onopen = () => {
-        console.log('[Hermes] WS connected, waiting for gateway.ready...');
-        // Fallback: if we don't get gateway.ready in 5s, show chat anyway
-        setTimeout(() => {
-          if (!wsConnected) {
-            console.log('[Hermes] No gateway.ready after 5s, showing chat anyway');
-            showChat();
-          }
-        }, 5000);
-      };
-      ws.onmessage = (event) => {
-        const data = JSON.parse(event.data);
-        console.log('[Hermes] WS message:', data.method || data.id, data.params?.type || '');
-        handleWsMessage(data);
-      };
-      ws.onerror = (err) => {
-        console.error('[Hermes] WS error', err);
-        showConnecting(false, 'WebSocket connection failed. Check that hermes serve is running.');
-      };
-      ws.onclose = (ev) => {
-        console.log('[Hermes] WS closed:', ev.code, ev.reason);
-        // Try reconnect after delay
-        setTimeout(() => { if (!ws || ws.readyState === WebSocket.CLOSED) connectWS(url); }, 3000);
-      };
+    function onServerReady() {
+      console.log('[Hermes] Server ready, showing chat');
+      showChat();
     }
 
-    function sendRpc(method, params) {
-      const id = ++rpcId;
-      const msg = { jsonrpc: '2.0', id, method, params };
-      ws.send(JSON.stringify(msg));
-      return id;
-    }
-
-    function handleWsMessage(data) {
-      // Event from gateway
+    // ── WS Event handling (relayed from extension host) ──
+    function handleWsEvent(data) {
       if (data.method === 'event') {
         const p = data.params || {};
         const t = p.type;
         if (!t) return;
+        console.log('[Hermes] Event:', t);
 
         switch (t) {
           case 'gateway.ready':
-            wsConnected = true;
             showChat();
             break;
-          case 'session.info':
-            updateSessionInfo(p);
-            break;
+          case 'session.info': break;
           case 'session.title':
-            updateTitle(p);
+            if (p.payload?.title) document.title = 'Hermes: ' + p.payload.title;
             break;
           case 'message.start':
             startAssistant();
@@ -256,30 +195,24 @@
           case 'turn.end':
             finishTurn();
             break;
-          case 'sessions.changed':
-            // Refresh session list
-            vscode.postMessage({ type: 'getSessions' });
-            break;
-          case 'session.usage':
-            updateUsage(p.payload || p);
-            break;
           case 'error':
             addError(p.payload?.message || p.message || 'Unknown error');
             break;
         }
         return;
       }
-      // RPC response
-      if (data.id && pendingRpc[data.id]) {
-        const cb = pendingRpc[data.id];
-        delete pendingRpc[data.id];
-        cb(data.result, data.error);
-      } else if (data.id && data.result) {
-        // Unsolicited result — could be session.create
+      // RPC response forwarded from host
+      if (data.id && data.result) {
         if (data.result.session_id) {
           currentSessionId = data.result.session_id;
         }
       }
+    }
+
+    // ── RPC via extension host relay ──
+    function sendRpc(method, params) {
+      const id = ++rpcCounter;
+      vscode.postMessage({ type: 'wsSendRpc', id, method, params });
     }
 
     // ── UI Helpers ──
@@ -297,7 +230,6 @@
       document.getElementById('context-bar').style.display = 'flex';
       document.getElementById('input-area').style.display = 'flex';
       document.getElementById('user-input').focus();
-      // Request session context
       vscode.postMessage({ type: 'createSession', cwd: currentCwd });
     }
 
@@ -314,61 +246,17 @@
       }
     }
 
-    function requestServer() {
-      vscode.postMessage({ type: 'ensureServer' });
-    }
-
     // ── Session management ──
     function startNewSession() {
       currentSessionId = null;
       document.getElementById('messages').innerHTML = '';
-      // Create session via WS
-      if (ws && ws.readyState === WebSocket.OPEN) {
-        const id = sendRpc('session.create', { cols: 120, source: 'vscode', cwd: currentCwd });
-        pendingRpc[id] = (result, error) => {
-          if (result && result.session_id) {
-            currentSessionId = result.session_id;
-          }
-        };
-      }
+      sendRpc('session.create', { cols: 120, source: 'vscode', cwd: currentCwd });
     }
 
     function resumeSession(sid) {
-      if (!ws || ws.readyState !== WebSocket.OPEN) return;
-      const id = sendRpc('session.resume', { session_id: sid });
-      pendingRpc[id] = (result, error) => {
-        if (error) { addError(error.message); return; }
-        currentSessionId = sid;
-        document.getElementById('messages').innerHTML = '';
-        // Render existing messages
-        if (result && result.messages) {
-          for (const m of result.messages) {
-            renderHistoryMessage(m);
-          }
-        }
-      };
-    }
-
-    function renderHistoryMessage(m) {
-      if (m.role === 'user') {
-        addUserMessage(m.text || m.content || '');
-      } else if (m.role === 'assistant') {
-        addAssistantMessage(m.text || m.content || '');
-      }
-    }
-
-    function updateSessionInfo(p) {
-      if (p.payload) {
-        const info = p.payload;
-        if (info.model) { /* could show in status bar */ }
-      }
-    }
-
-    function updateTitle(p) {
-      const payload = p.payload || {};
-      if (payload.title) {
-        document.title = 'Hermes: ' + payload.title;
-      }
+      sendRpc('session.resume', { session_id: sid });
+      currentSessionId = sid;
+      document.getElementById('messages').innerHTML = '';
     }
 
     // ── Message rendering ──
@@ -390,7 +278,6 @@
       div.innerHTML = '<div class="role">Assistant</div><span class="content"></span>';
       document.getElementById('messages').appendChild(div);
       assistantEl = div.querySelector('.content');
-      // Add thinking section
       const t = document.createElement('div');
       t.className = 'thinking';
       t.innerHTML = '<div class="header" onclick="this.parentElement.classList.toggle(\'open\')">Thinking...</div><div class="content"></div>';
@@ -418,16 +305,7 @@
     function appendAssistant(text) {
       if (!text || !assistantEl) return;
       assistantText += text;
-      // Render markdown-lite: code blocks, bold, file links
       assistantEl.innerHTML = renderMarkdown(assistantText);
-      scrollDown();
-    }
-
-    function addAssistantMessage(text) {
-      const div = document.createElement('div');
-      div.className = 'msg assistant';
-      div.innerHTML = '<div class="role">Assistant</div><div>' + renderMarkdown(text) + '</div>';
-      document.getElementById('messages').appendChild(div);
       scrollDown();
     }
 
@@ -458,7 +336,7 @@
       el.style.borderLeftColor = p.error ? 'var(--error)' : 'var(--success)';
       const detail = el.querySelector('.tool-detail');
       if (detail && p.result) {
-        detail.textContent += '\\n--- Result ---\\n' + (typeof p.result === 'string' ? p.result : JSON.stringify(p.result, null, 2));
+        detail.textContent += '\n--- Result ---\n' + (typeof p.result === 'string' ? p.result : JSON.stringify(p.result, null, 2));
       }
     }
 
@@ -487,45 +365,31 @@
       thinkingEl = null;
     }
 
-    function updateUsage(p) {
-      const u = p.usage || {};
-      if (u.model) {
-        // Could show in context bar
-      }
-    }
-
     // ── Send / interrupt ──
     function sendMessage() {
       const ta = document.getElementById('user-input');
       const text = ta.value.trim();
       if (!text) return;
-      if (!ws || ws.readyState !== WebSocket.OPEN) {
-        addError('Not connected to Hermes');
-        return;
-      }
       ta.value = '';
       ta.style.height = 'auto';
-      // Show user message
       addUserMessage(text);
-      // If no session, create one first
       if (!currentSessionId) {
-        const id = sendRpc('session.create', { cols: 120, source: 'vscode', cwd: currentCwd });
-        pendingRpc[id] = (result, error) => {
-          if (result && result.session_id) {
-            currentSessionId = result.session_id;
-            doSend(text, currentSessionId);
-          } else {
-            addError('Failed to create session');
-          }
-        };
+        sendRpc('session.create', { cols: 120, source: 'vscode', cwd: currentCwd });
+        // Wait a moment for session to be created, then send
+        // The session.create result will set currentSessionId, but since RPC
+        // is async through the relay, we also send via doSend which checks
+        setTimeout(() => { doSend(text, currentSessionId); }, 500);
         return;
       }
       doSend(text, currentSessionId);
     }
 
     function doSend(text, sid) {
+      if (!sid) {
+        addError('No session yet — create one first');
+        return;
+      }
       vscode.postMessage({ type: 'sendMessage', text, sessionId: sid });
-      // Actually send via WS now
       sendRpc('prompt.submit', { session_id: sid, text });
     }
 
@@ -544,19 +408,11 @@
         sendMessage();
       }
     });
-
     document.getElementById('user-input').addEventListener('input', (e) => {
       const ta = e.target;
       ta.style.height = 'auto';
       ta.style.height = Math.min(ta.scrollHeight, 200) + 'px';
     });
-
-    function handleKeydown(e) {
-      if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        sendMessage();
-      }
-    }
 
     function setButtons(streaming) {
       const btn = document.getElementById('send-btn');
@@ -578,34 +434,24 @@
     function renderMarkdown(text) {
       if (!text) return '';
       let html = text
-        // Escape HTML
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;')
-        // Code blocks
-        .replace(/\\\`\\\`\\\`(\w*)\n?([\s\S]*?)\\\`\\\`\\\`/g, (m, lang, code) => {
+        .replace(/```(\w*)\n?([\s\S]*?)```/g, (m, lang, code) => {
           return '<pre style="background:#0d1117;padding:8px;border-radius:4px;overflow-x:auto;margin:4px 0;font-size:12px;"><code>' + code.trim() + '</code></pre>';
         })
-        // Inline code
-        .replace(/\\\`([^\`]+)\\\`/g, '<code style="background:#333;padding:1px 4px;border-radius:3px;font-size:12px;">$1</code>')
-        // Bold
-        .replace(/\\*\\*(.+?)\\*\\*/g, '<strong>$1</strong>')
-        // File paths (clickable)
-        .replace(/(^|\\s)(\\/[^\\s]+\\.[a-z]{2,})/g, (m, pre, path) => {
-          return pre + '<span class="file-link" onclick="openFile(\\'' + path + '\\')">' + path + '</span>';
+        .replace(/`([^`]+)`/g, '<code style="background:#333;padding:1px 4px;border-radius:3px;font-size:12px;">$1</code>')
+        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+        .replace(/(^|\s)(\/[^\s]+\.[a-z]{2,})/g, (m, pre, p) => {
+          return pre + '<span class="file-link" onclick="openFile(\'' + p + '\')">' + p + '</span>';
         })
-        // Newlines
-        .replace(/\\n/g, '<br>');
+        .replace(/\n/g, '<br>');
       return html;
     }
 
     function openFile(p) {
       vscode.postMessage({ type: 'openFile', path: p });
     }
-
-    // ── Session list / profiles ──
-    function renderSessionList(sessions) { /* handled by sidebar */ }
-    function renderProfiles(profiles) { /* could populate a selector */ }
   </script>
 </body>
 </html>

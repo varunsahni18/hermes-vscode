@@ -2,12 +2,17 @@ import * as vscode from 'vscode';
 import { HermesConfig } from './config';
 import { HermesServer } from './server';
 import { getChatHtml } from './chatHtml';
+import * as ws from 'ws';
 
 export class ChatPanel {
     private panel: vscode.WebviewPanel | null = null;
     private currentSessionId: string | null = null;
     private currentFile: string | null = null;
     private currentCwd: string | null = null;
+    private ws: ws.WebSocket | null = null;
+    private serverReady = false;
+    private rpcId = 0;
+    private pendingRpc: Map<number, { resolve: (r: any) => void; reject: (e: any) => void }> = new Map();
 
     constructor(
         private context: vscode.ExtensionContext,
@@ -34,7 +39,6 @@ export class ChatPanel {
 
         this.panel.webview.html = getChatHtml();
 
-        // Handle messages from the webview
         this.panel.webview.onDidReceiveMessage(
             (msg) => this.handleMessage(msg),
             undefined,
@@ -43,9 +47,9 @@ export class ChatPanel {
 
         this.panel.onDidDispose(() => {
             this.panel = null;
+            this.disconnectWs();
         });
 
-        // Send initial context
         this.updateContext();
     }
 
@@ -92,10 +96,93 @@ export class ChatPanel {
                process.env.HOME || process.env.USERPROFILE || '';
     }
 
+    // ── WebSocket relay (extension host → webview) ──
+
+    private connectWs(): void {
+        if (this.ws && this.ws.readyState === ws.OPEN) return;
+
+        const url = this.server.wsUrlWithToken;
+        console.log('[Hermes] Extension host connecting WS to:', url);
+        this.ws = new ws.WebSocket(url);
+
+        this.ws.on('open', () => {
+            console.log('[Hermes] WS connected');
+        });
+
+        this.ws.on('message', (data: string) => {
+            try {
+                const msg = JSON.parse(data);
+                // Check if it's an RPC response
+                if (msg.id && this.pendingRpc.has(msg.id)) {
+                    const cb = this.pendingRpc.get(msg.id)!;
+                    this.pendingRpc.delete(msg.id);
+                    if (msg.error) {
+                        cb.reject(msg.error);
+                    } else {
+                        cb.resolve(msg.result);
+                    }
+                    return;
+                }
+                // Forward all events to the webview
+                this.postMessage({ type: 'wsEvent', data: msg });
+            } catch (e) {
+                console.error('[Hermes] WS parse error:', e);
+            }
+        });
+
+        this.ws.on('error', (err) => {
+            console.error('[Hermes] WS error:', err.message || err);
+            this.postMessage({ type: 'wsError', error: err.message || 'WebSocket error' });
+        });
+
+        this.ws.on('close', (code, reason) => {
+            console.log('[Hermes] WS closed:', code, reason);
+            this.postMessage({ type: 'wsClosed', code, reason: reason?.toString() });
+            // Auto-reconnect after 3s
+            setTimeout(() => {
+                if (this.panel && this.serverReady) {
+                    this.connectWs();
+                }
+            }, 3000);
+        });
+    }
+
+    private disconnectWs(): void {
+        if (this.ws) {
+            this.ws.removeAllListeners();
+            this.ws.close();
+            this.ws = null;
+        }
+    }
+
+    private sendRpc(method: string, params: any): Promise<any> {
+        return new Promise((resolve, reject) => {
+            if (!this.ws || this.ws.readyState !== ws.OPEN) {
+                reject(new Error('WebSocket not connected'));
+                return;
+            }
+            const id = ++this.rpcId;
+            const msg = { jsonrpc: '2.0', id, method, params };
+            this.pendingRpc.set(id, { resolve, reject });
+            this.ws.send(JSON.stringify(msg));
+        });
+    }
+
+    // ── Message handling ──
+
     private async handleMessage(msg: any): Promise<void> {
         switch (msg.type) {
             case 'ensureServer':
                 await this.ensureServer();
+                break;
+            case 'wsSendRpc':
+                // Webview wants to send an RPC — relay through our WS
+                try {
+                    const result = await this.sendRpc(msg.method, msg.params);
+                    this.postMessage({ type: 'wsRpcResult', id: msg.id, result });
+                } catch (err: any) {
+                    this.postMessage({ type: 'wsRpcResult', id: msg.id, error: err.message || String(err) });
+                }
                 break;
             case 'createSession':
                 await this.createSession(msg.cwd, msg.profile, msg.model);
@@ -127,23 +214,25 @@ export class ChatPanel {
         }
     }
 
-    private serverReady = false;
-
     private async ensureServer(): Promise<void> {
         if (this.serverReady && this.server.token) {
-            this.postMessage({ type: 'serverReady', wsUrl: this.server.wsUrlWithToken });
+            this.connectWs();
+            this.postMessage({ type: 'serverReady' });
             return;
         }
 
         try {
-            // Always ensure we have a server running with a token we know
             const ok = await this.server.ensureRunning();
             if (!ok) {
                 this.postMessage({ type: 'serverError', error: 'Failed to start Hermes server. Make sure "hermes" is installed and in PATH.' });
                 return;
             }
             this.serverReady = true;
-            this.postMessage({ type: 'serverReady', wsUrl: this.server.wsUrlWithToken });
+            this.connectWs();
+            // Wait for WS to connect, then notify
+            setTimeout(() => {
+                this.postMessage({ type: 'serverReady' });
+            }, 1000);
         } catch (err) {
             console.error('[Hermes] ensureServer error:', err);
             this.postMessage({ type: 'serverError', error: `Hermes server error: ${err}` });
@@ -151,8 +240,6 @@ export class ChatPanel {
     }
 
     private async createSession(cwd?: string, profile?: string, model?: string): Promise<void> {
-        // The webview's JS will handle this via WebSocket directly
-        // But we provide the workspace context here
         const sessionCwd = cwd || (this.config.includeWorkspaceContext ? this.getWorkspaceRoot() : undefined);
         this.postMessage({
             type: 'sessionContext',
@@ -163,7 +250,6 @@ export class ChatPanel {
     }
 
     private async sendMessage(text: string, sessionId: string): Promise<void> {
-        // Inject file context if enabled
         let finalText = text;
         if (this.config.includeFileContext && this.currentFile && !text.startsWith('/')) {
             const fileName = this.currentFile.split('/').pop() || this.currentFile;
