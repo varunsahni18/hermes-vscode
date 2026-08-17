@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1a1a2e"/>
+      <stop offset="100%" style="stop-color:#16213e"/>
+    </linearGradient>
+    <linearGradient id="wing" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#e94560"/>
+      <stop offset="100%" style="stop-color:#c2365f"/>
+    </linearGradient>
+  </defs>
+  <!-- Rounded square background -->
+  <rect width="128" height="128" rx="28" fill="url(#bg)"/>
+  <!-- Winged sandal / Hermes symbol -->
+  <g transform="translate(64, 64)">
+    <!-- Wing -->
+    <path d="M -30 -10 Q -20 -25, 0 -20 Q 20 -25, 30 -10 Q 20 -5, 0 -8 Q -20 -5, -30 -10 Z"
+          fill="url(#wing)" opacity="0.9"/>
+    <!-- Sandal body -->
+    <ellipse cx="0" cy="5" rx="22" ry="8" fill="#f0f0f0" opacity="0.95"/>
+    <!-- Straps -->
+    <path d="M -15 0 Q 0 -5, 15 0" stroke="#e94560" stroke-width="2.5" fill="none"/>
+    <path d="M -10 5 Q 0 2, 10 5" stroke="#e94560" stroke-width="2" fill="none"/>
+    <!-- Wing details -->
+    <path d="M -25 -12 L -28 -8 M -15 -15 L -18 -10 M -5 -18 L -8 -12 M 5 -18 L 8 -12 M 15 -15 L 18 -10 M 25 -12 L 28 -8"
+          stroke="#fff" stroke-width="1.5" opacity="0.4"/>
+  </g>
+  <!-- Sparkle -->
+  <circle cx="95" cy="30" r="3" fill="#e94560" opacity="0.6"/>
+  <circle cx="35" cy="95" r="2" fill="#e94560" opacity="0.4"/>
+</svg>
