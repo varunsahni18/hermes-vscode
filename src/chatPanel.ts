@@ -130,43 +130,24 @@ export class ChatPanel {
     private serverReady = false;
 
     private async ensureServer(): Promise<void> {
-        if (this.serverReady) {
+        if (this.serverReady && this.server.token) {
             this.postMessage({ type: 'serverReady', wsUrl: this.server.wsUrlWithToken });
             return;
         }
 
-        const healthy = await this.server.checkHealth();
-        if (healthy) {
-            // Server already running — try to discover token
-            await this.server.discoverToken();
-            // If we can't find the token (macOS doesn't show env in ps),
-            // restart the server with our own token
-            if (!this.server.token) {
-                // Test if the server accepts connections without a token
-                const ok = await this.server.testNoTokenWs();
-                if (!ok) {
-                    // Kill and restart with our token
-                    await this.server.killExistingServer();
-                    const started = await this.server.start();
-                    if (!started) {
-                        this.postMessage({ type: 'serverError', error: 'Failed to restart Hermes server with auth token.' });
-                        return;
-                    }
-                }
-            }
-        } else if (this.config.autoStartServer) {
-            const started = await this.server.start();
-            if (!started) {
-                this.postMessage({ type: 'serverError', error: 'Failed to start Hermes server. Is hermes installed?' });
+        try {
+            // Always ensure we have a server running with a token we know
+            const ok = await this.server.ensureRunning();
+            if (!ok) {
+                this.postMessage({ type: 'serverError', error: 'Failed to start Hermes server. Make sure "hermes" is installed and in PATH.' });
                 return;
             }
-        } else {
-            this.postMessage({ type: 'serverError', error: 'Hermes server is not running. Enable auto-start or run \'hermes serve\' manually.' });
-            return;
+            this.serverReady = true;
+            this.postMessage({ type: 'serverReady', wsUrl: this.server.wsUrlWithToken });
+        } catch (err) {
+            console.error('[Hermes] ensureServer error:', err);
+            this.postMessage({ type: 'serverError', error: `Hermes server error: ${err}` });
         }
-
-        this.serverReady = true;
-        this.postMessage({ type: 'serverReady', wsUrl: this.server.wsUrlWithToken });
     }
 
     private async createSession(cwd?: string, profile?: string, model?: string): Promise<void> {

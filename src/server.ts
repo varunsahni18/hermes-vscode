@@ -67,14 +67,15 @@ export class HermesServer {
 
     async ensureRunning(): Promise<boolean> {
         const healthy = await this.checkHealth();
-        if (healthy) {
-            await this.discoverToken();
-            if (this.sessionToken) {
-                return true;
-            }
-            // Can't discover token — restart with our own
-            console.log('[Hermes] Found running server but could not discover token. Restarting...');
-            await this.killExistingServer();
+        if (healthy && this.sessionToken) {
+            // We started this server ourselves — token is known
+            return true;
+        }
+        if (healthy && !this.sessionToken) {
+            // Server running but we don't know its token (started by desktop app)
+            // Rather than killing it, try to start our own on a different port
+            console.log('[Hermes] Server running with unknown token, starting our own on port', this.port + 1);
+            this.port = this.port + 1;
             return this.start();
         }
         return this.start();
@@ -176,6 +177,10 @@ export class HermesServer {
     }
 
     async discoverToken(): Promise<void> {
+        // Don't overwrite a token we already set via start()
+        if (this.sessionToken) {
+            return;
+        }
         const envToken = process.env.HERMES_DASHBOARD_SESSION_TOKEN;
         if (envToken) {
             this.sessionToken = envToken;
