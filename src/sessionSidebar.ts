@@ -48,6 +48,7 @@ export class SessionSidebarProvider implements vscode.WebviewViewProvider {
     }
 
     private async loadSessions(): Promise<void> {
+        await this.server.ensureRunning();
         const sessions = await this.server.listSessions(this.config.sessionLimit);
         this.view?.webview.postMessage({ type: 'sessionList', sessions });
     }
