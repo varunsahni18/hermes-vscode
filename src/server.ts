@@ -81,15 +81,6 @@ export class HermesServer {
         return this.start();
     }
 
-    async killExistingServer(): Promise<void> {
-        try {
-            cp.execSync('pkill -f "hermes serve"', { timeout: 3000 });
-        } catch {
-            // ignore
-        }
-        await new Promise(r => setTimeout(r, 2000));
-    }
-
     async start(): Promise<boolean> {
         this.sessionToken = 'hvs-' + Math.random().toString(36).substring(2, 8) + '-' + Date.now().toString(36);
 
@@ -165,54 +156,12 @@ export class HermesServer {
     }
 
     async stop(): Promise<void> {
+        // Only kill the process WE started — never touch the desktop app's server
         if (this.serverProcess) {
             this.serverProcess.kill('SIGTERM');
             this.serverProcess = null;
+            this.sessionToken = '';
         }
-        try {
-            cp.execSync('hermes serve --stop', { timeout: 5000 });
-        } catch {
-            // ignore
-        }
-    }
-
-    async discoverToken(): Promise<void> {
-        // Don't overwrite a token we already set via start()
-        if (this.sessionToken) {
-            return;
-        }
-        const envToken = process.env.HERMES_DASHBOARD_SESSION_TOKEN;
-        if (envToken) {
-            this.sessionToken = envToken;
-            return;
-        }
-        // Read from dashboard.toml if it exists
-        try {
-            const fs = require('fs');
-            const path = require('path');
-            const dashToml = path.join(this.config.hermesHome, 'dashboard.toml');
-            if (fs.existsSync(dashToml)) {
-                const content = fs.readFileSync(dashToml, 'utf-8');
-                const m = content.match(/session_token\s*=\s*['"]?(\S+)['"]?/);
-                if (m) {
-                    this.sessionToken = m[1];
-                    return;
-                }
-            }
-        } catch {
-            // ignore
-        }
-        // Can't discover — set empty so caller knows to restart
-        this.sessionToken = '';
-    }
-
-    async testNoTokenWs(): Promise<boolean> {
-        // Test if we can connect to the WS without a token
-        // by making an HTTP request to the health endpoint and checking
-        // if the server is in loopback mode (which may accept no-token)
-        // Actually, the WS auth requires a token even in loopback mode.
-        // So if we can't discover the token, return false to trigger restart.
-        return false;
     }
 
     async listSessions(limit: number = 50): Promise<SessionInfo[]> {
