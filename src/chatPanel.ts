@@ -99,51 +99,75 @@ export class ChatPanel {
     // ── WebSocket relay (extension host → webview) ──
 
     private connectWs(): void {
-        if (this.ws && this.ws.readyState === ws.OPEN) return;
+        this.connectWsAsync().catch(() => {});
+    }
 
-        const url = this.server.wsUrlWithToken;
-        console.log('[Hermes] Extension host connecting WS to:', url);
-        this.ws = new ws.WebSocket(url);
-
-        this.ws.on('open', () => {
-            console.log('[Hermes] WS connected');
-        });
-
-        this.ws.on('message', (data: string) => {
-            try {
-                const msg = JSON.parse(data);
-                // Check if it's an RPC response
-                if (msg.id && this.pendingRpc.has(msg.id)) {
-                    const cb = this.pendingRpc.get(msg.id)!;
-                    this.pendingRpc.delete(msg.id);
-                    if (msg.error) {
-                        cb.reject(msg.error);
-                    } else {
-                        cb.resolve(msg.result);
-                    }
-                    return;
-                }
-                // Forward all events to the webview
-                this.postMessage({ type: 'wsEvent', data: msg });
-            } catch (e) {
-                console.error('[Hermes] WS parse error:', e);
+    private connectWsAsync(): Promise<boolean> {
+        return new Promise((resolve) => {
+            if (this.ws && this.ws.readyState === ws.OPEN) {
+                resolve(true);
+                return;
             }
-        });
+            if (this.ws) {
+                this.ws.removeAllListeners();
+                this.ws.close();
+                this.ws = null;
+            }
 
-        this.ws.on('error', (err) => {
-            console.error('[Hermes] WS error:', err.message || err);
-            this.postMessage({ type: 'wsError', error: err.message || 'WebSocket error' });
-        });
+            const url = this.server.wsUrlWithToken;
+            console.log('[Hermes] Extension host connecting WS to:', url);
+            this.ws = new ws.WebSocket(url);
 
-        this.ws.on('close', (code, reason) => {
-            console.log('[Hermes] WS closed:', code, reason);
-            this.postMessage({ type: 'wsClosed', code, reason: reason?.toString() });
-            // Auto-reconnect after 3s
-            setTimeout(() => {
-                if (this.panel && this.serverReady) {
-                    this.connectWs();
+            let resolved = false;
+            const done = (ok: boolean) => {
+                if (!resolved) { resolved = true; resolve(ok); }
+            };
+
+            // Timeout: if WS doesn't open in 10s, fail
+            const timeout = setTimeout(() => done(false), 10000);
+
+            this.ws.on('open', () => {
+                clearTimeout(timeout);
+                console.log('[Hermes] WS connected');
+                done(true);
+            });
+
+            this.ws.on('message', (data: string) => {
+                try {
+                    const msg = JSON.parse(data);
+                    if (msg.id && this.pendingRpc.has(msg.id)) {
+                        const cb = this.pendingRpc.get(msg.id)!;
+                        this.pendingRpc.delete(msg.id);
+                        if (msg.error) {
+                            cb.reject(msg.error);
+                        } else {
+                            cb.resolve(msg.result);
+                        }
+                        return;
+                    }
+                    this.postMessage({ type: 'wsEvent', data: msg });
+                } catch (e) {
+                    console.error('[Hermes] WS parse error:', e);
                 }
-            }, 3000);
+            });
+
+            this.ws.on('error', (err: Error) => {
+                clearTimeout(timeout);
+                console.error('[Hermes] WS error:', err.message || err);
+                done(false);
+                this.postMessage({ type: 'wsError', error: err.message || 'WebSocket error' });
+            });
+
+            this.ws.on('close', (code, reason) => {
+                console.log('[Hermes] WS closed:', code, reason?.toString());
+                this.postMessage({ type: 'wsClosed', code, reason: reason?.toString() });
+                // Auto-reconnect after 3s
+                setTimeout(() => {
+                    if (this.panel && this.serverReady) {
+                        this.connectWs();
+                    }
+                }, 3000);
+            });
         });
     }
 
@@ -228,11 +252,13 @@ export class ChatPanel {
                 return;
             }
             this.serverReady = true;
-            this.connectWs();
-            // Wait for WS to connect, then notify
-            setTimeout(() => {
+            // Connect WS and wait for it to actually open before notifying webview
+            const connected = await this.connectWsAsync();
+            if (connected) {
                 this.postMessage({ type: 'serverReady' });
-            }, 1000);
+            } else {
+                this.postMessage({ type: 'serverError', error: 'Could not connect to Hermes WebSocket.' });
+            }
         } catch (err) {
             console.error('[Hermes] ensureServer error:', err);
             this.postMessage({ type: 'serverError', error: `Hermes server error: ${err}` });

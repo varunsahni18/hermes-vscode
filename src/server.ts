@@ -65,26 +65,51 @@ export class HermesServer {
         });
     }
 
+    private startPromise: Promise<boolean> | null = null;
+
     async ensureRunning(): Promise<boolean> {
-        const healthy = await this.checkHealth();
-        if (healthy && this.sessionToken) {
-            // We started this server ourselves — token is known
-            return true;
+        // If we're already starting, wait for that to finish
+        if (this.startPromise) {
+            return this.startPromise;
         }
-        if (healthy && !this.sessionToken) {
-            // Server running but we don't know its token (started by desktop app)
-            // Rather than killing it, try to start our own on a different port
-            console.log('[Hermes] Server running with unknown token, starting our own on port', this.port + 1);
-            this.port = this.port + 1;
-            return this.start();
+        // If we already have a token and the server is healthy, we're good
+        if (this.sessionToken && this.serverProcess) {
+            const healthy = await this.checkHealth();
+            if (healthy) return true;
         }
         return this.start();
     }
 
     async start(): Promise<boolean> {
-        this.sessionToken = 'hvs-' + Math.random().toString(36).substring(2, 8) + '-' + Date.now().toString(36);
+        // Deduplicate concurrent calls
+        if (this.startPromise) return this.startPromise;
 
-        console.log('[Hermes] Starting server with token:', this.sessionToken);
+        this.startPromise = this._startImpl();
+        try {
+            return await this.startPromise;
+        } finally {
+            this.startPromise = null;
+        }
+    }
+
+    private async _startImpl(): Promise<boolean> {
+        // Check if there's already a server we started
+        if (this.sessionToken && this.serverProcess) {
+            const healthy = await this.checkHealth();
+            if (healthy) return true;
+        }
+
+        // Check if a server is running on our port that we didn't start
+        const existingHealthy = await this.checkHealth();
+        if (existingHealthy && !this.sessionToken) {
+            // Server running but we don't know its token (started by desktop app)
+            // Start our own on a different port
+            console.log('[Hermes] Server running with unknown token, starting our own on port', this.port + 1);
+            this.port = this.port + 1;
+        }
+
+        this.sessionToken = 'hvs-' + Math.random().toString(36).substring(2, 8) + '-' + Date.now().toString(36);
+        console.log('[Hermes] Starting server with token:', this.sessionToken, 'on port', this.port);
 
         return new Promise((resolve) => {
             const env = { ...process.env, HERMES_DASHBOARD_SESSION_TOKEN: this.sessionToken };
