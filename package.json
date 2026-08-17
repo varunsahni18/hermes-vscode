@@ -1,8 +1,8 @@
 {
   "name": "hermes-agent-vscode",
   "displayName": "Hermes Agent",
-  "description": "Hermes Agent integration for VS Code — full TUI, multi-agent, session history, profile switching, and native file/diff integration",
-  "version": "0.1.0",
+  "description": "Full GUI chat with Hermes Agent inside VS Code — streaming, tool calls, session history, slash commands, and automatic workspace context.",
+  "version": "0.2.0",
   "publisher": "varunsahni",
   "license": "MIT",
   "repository": {
@@ -12,94 +12,68 @@
   "engines": {
     "vscode": "^1.85.0"
   },
-  "categories": [
-    "AI",
-    "Chat",
-    "Other"
-  ],
-  "keywords": [
-    "hermes",
-    "ai",
-    "agent",
-    "llm",
-    "nous-research",
-    "coding-assistant"
-  ],
+  "categories": ["AI", "Chat", "Other"],
+  "keywords": ["ai", "agent", "hermes", "nous research", "llm", "chatbot", "assistant"],
   "icon": "media/icon.png",
-  "activationEvents": [
-    "onStartupFinished"
-  ],
   "main": "./out/extension.js",
+  "activationEvents": ["onStartupFinished"],
   "contributes": {
     "viewsContainers": {
       "activitybar": [
         {
-          "id": "hermes-sidebar",
+          "id": "hermes",
           "title": "Hermes Agent",
           "icon": "media/hermes.svg"
         }
       ]
     },
     "views": {
-      "hermes-sidebar": [
+      "hermes": [
         {
           "id": "hermes.sessions",
-          "name": "Sessions"
-        },
-        {
-          "id": "hermes.profiles",
-          "name": "Profiles"
+          "name": "Sessions",
+          "type": "webview"
         }
       ]
     },
     "commands": [
       {
-        "command": "hermes.newAgent",
-        "title": "Hermes: New Agent",
+        "command": "hermes.openChat",
+        "title": "Hermes: Open Chat",
+        "category": "Hermes"
+      },
+      {
+        "command": "hermes.newChat",
+        "title": "Hermes: New Chat",
+        "category": "Hermes",
         "icon": "$(add)"
-      },
-      {
-        "command": "hermes.newAgentProfile",
-        "title": "Hermes: New Agent (Select Profile)",
-        "icon": "$(server)"
-      },
-      {
-        "command": "hermes.resumeSession",
-        "title": "Hermes: Resume Session",
-        "icon": "$(play)"
       },
       {
         "command": "hermes.refreshSessions",
         "title": "Hermes: Refresh Sessions",
+        "category": "Hermes",
         "icon": "$(refresh)"
       },
       {
         "command": "hermes.switchProfile",
         "title": "Hermes: Switch Profile",
-        "icon": "$(arrow-swap)"
+        "category": "Hermes"
       },
       {
-        "command": "hermes.openSettings",
-        "title": "Hermes: Settings"
+        "command": "hermes.stopServer",
+        "title": "Hermes: Stop Server",
+        "category": "Hermes"
       },
       {
-        "command": "hermes.stopAgent",
-        "title": "Hermes: Stop Active Agent"
-      },
-      {
-        "command": "hermes.stopAllAgents",
-        "title": "Hermes: Stop All Agents"
-      },
-      {
-        "command": "hermes.openDiff",
-        "title": "Hermes: Open Diff View",
-        "icon": "$(diff)"
+        "command": "hermes.sendCurrentFile",
+        "title": "Hermes: Chat About Current File",
+        "category": "Hermes"
       }
     ],
     "menus": {
       "view/title": [
         {
-          "command": "hermes.newAgent",
+          "command": "hermes.newChat",
           "when": "view == hermes.sessions",
           "group": "navigation"
         },
@@ -107,70 +81,66 @@
           "command": "hermes.refreshSessions",
           "when": "view == hermes.sessions",
           "group": "navigation"
-        },
-        {
-          "command": "hermes.switchProfile",
-          "when": "view == hermes.profiles",
-          "group": "navigation"
         }
       ],
-      "view/item/context": [
+      "editor/context": [
         {
-          "command": "hermes.resumeSession",
-          "when": "view == hermes.sessions && viewItem == session",
-          "group": "inline"
+          "command": "hermes.sendCurrentFile",
+          "group": "hermes",
+          "when": "editorTextFocus"
         }
       ]
     },
     "configuration": {
       "title": "Hermes Agent",
       "properties": {
-        "hermes.executablePath": {
-          "type": "string",
-          "default": "hermes",
-          "description": "Path to the hermes executable. Defaults to 'hermes' on PATH."
+        "hermes.serverPort": {
+          "type": "number",
+          "default": 9119,
+          "description": "Port for the Hermes backend server"
         },
-        "hermes.useTui": {
+        "hermes.serverHost": {
+          "type": "string",
+          "default": "127.0.0.1",
+          "description": "Host for the Hermes backend server"
+        },
+        "hermes.autoStartServer": {
           "type": "boolean",
           "default": true,
-          "description": "Use the full TUI (--tui flag). Disable for a plain terminal session."
+          "description": "Automatically start the Hermes server if not running"
         },
         "hermes.defaultProfile": {
           "type": "string",
           "default": "",
-          "description": "Default profile to use when starting new agents. Leave empty for the default profile."
-        },
-        "hermes.autoOpenFileLinks": {
-          "type": "boolean",
-          "default": true,
-          "description": "Automatically detect and make file paths in terminal output clickable."
+          "description": "Default Hermes profile for new chat sessions"
         },
         "hermes.sessionLimit": {
           "type": "number",
           "default": 50,
-          "description": "Maximum number of sessions to show in the sidebar."
+          "description": "Maximum sessions to show in the sidebar"
+        },
+        "hermes.includeFileContext": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically include the current file path as context"
+        },
+        "hermes.includeWorkspaceContext": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically set the workspace directory as the session cwd"
         }
       }
-    },
-    "terminal": {
-      "profiles": [
-        {
-          "title": "Hermes Agent",
-          "id": "hermes.terminal"
-        }
-      ]
     }
   },
   "scripts": {
-    "vscode:prepublish": "npm run compile",
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
-    "pretest": "npm run compile",
-    "lint": "eslint src --ext ts"
+    "vscode:prepublish": "npm run compile",
+    "package": "vsce package --no-git-tag-version --no-dependencies"
   },
   "devDependencies": {
+    "@types/node": "^20.11.0",
     "@types/vscode": "^1.85.0",
-    "@types/node": "^20.0.0",
     "typescript": "^5.3.0"
   }
 }

@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hermes Sessions</title>
+  <style>
+    :root {
+      --bg: var(--vscode-editor-background, #1e1e1e);
+      --fg: var(--vscode-editor-foreground, #d4d4d4);
+      --border: var(--vscode-panel-border, #333);
+      --accent: #ffbf00;
+      --accent-dim: #b8860b;
+      --muted: #888;
+      --hover: var(--vscode-list-hoverBackground, #2a2d2e);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: var(--vscode-editor-font-family, 'SF Mono', Monaco, Menlo, monospace);
+      font-size: 12px; background: var(--bg); color: var(--fg);
+      height: 100vh; overflow-y: auto;
+    }
+    body::-webkit-scrollbar { width: 6px; }
+    body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+    .session-item {
+      padding: 8px 12px; border-bottom: 1px solid var(--border);
+      cursor: pointer; display: flex; flex-direction: column; gap: 2px;
+    }
+    .session-item:hover { background: var(--hover); }
+    .session-item .title { color: var(--fg); font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .session-item .meta { color: var(--muted); font-size: 10px; display: flex; gap: 8px; }
+    .session-item .meta .msgs { color: var(--accent-dim); }
+    .session-item .meta .source { color: var(--muted); }
+    #loading { padding: 20px; text-align: center; color: var(--muted); }
+    #error { padding: 12px; color: var(--error, #ef5350); }
+    .new-btn {
+      width: 100%; padding: 6px; background: var(--accent-dim); color: var(--bg);
+      border: none; cursor: pointer; font-weight: 600; font-size: 12px;
+      border-radius: 0; position: sticky; top: 0;
+    }
+    .new-btn:hover { background: var(--accent); }
+  </style>
+</head>
+<body>
+  <button class="new-btn" onclick="newChat()">+ New Chat</button>
+  <div id="loading">Loading sessions...</div>
+  <div id="session-list"></div>
+
+  <script>
+    const vscode = acquireVsCodeApi();
+
+    window.addEventListener('message', (event) => {
+      const msg = event.data;
+      switch (msg.type) {
+        case 'sessionList': renderSessions(msg.sessions); break;
+        case 'refresh': loadSessions(); break;
+      }
+    });
+
+    // Request sessions on load
+    loadSessions();
+
+    function loadSessions() {
+      vscode.postMessage({ type: 'loadSessions' });
+    }
+
+    function newChat() {
+      vscode.postMessage({ type: 'newChat' });
+    }
+
+    function renderSessions(sessions) {
+      document.getElementById('loading').style.display = 'none';
+      const list = document.getElementById('session-list');
+      list.innerHTML = '';
+      if (!sessions || sessions.length === 0) {
+        list.innerHTML = '<div style="padding:12px;color:var(--muted)">No sessions yet</div>';
+        return;
+      }
+      for (const s of sessions) {
+        const item = document.createElement('div');
+        item.className = 'session-item';
+        const title = s.title || '(untitled)';
+        const time = formatTime(s.last_activity_at);
+        const msgs = s.message_count || 0;
+        const source = s.source || '';
+        item.innerHTML =
+          '<div class="title">' + escapeHtml(title) + '</div>' +
+          '<div class="meta">' +
+            '<span class="msgs">' + msgs + ' msgs</span>' +
+            '<span>' + time + '</span>' +
+            (source ? '<span class="source">' + source + '</span>' : '') +
+          '</div>';
+        item.onclick = () => {
+          vscode.postMessage({ type: 'resumeSession', sessionId: s.id, storedId: s.stored_session_id });
+        };
+        list.appendChild(item);
+      }
+    }
+
+    function formatTime(ts) {
+      if (!ts) return '';
+      const d = new Date(ts * 1000);
+      const now = new Date();
+      const diff = (now - d) / 1000;
+      if (diff < 60) return 'just now';
+      if (diff < 3600) return Math.floor(diff/60) + 'm ago';
+      if (diff < 86400) return Math.floor(diff/3600) + 'h ago';
+      if (diff < 86400*7) return Math.floor(diff/86400) + 'd ago';
+      return d.toLocaleDateString();
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+  </script>
+</body>
+</html>
