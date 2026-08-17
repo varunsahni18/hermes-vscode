@@ -1,63 +1,35 @@
 # Hermes Agent for VS Code
 
-A first-class VS Code extension for [Hermes Agent](https://github.com/NousResearch/hermes-agent) by Nous Research.
+A full GUI chat interface for [Hermes Agent](https://hermes-agent.nousresearch.com/) by Nous Research — right inside VS Code. This is **not** a terminal wrapper. It connects to the Hermes WebSocket JSON-RPC API (the same protocol the Hermes desktop app uses) and renders a proper chat interface with streaming, tool calls, thinking sections, and session history.
 
-## What it does
-
-This extension wraps the **full Hermes TUI** inside VS Code, giving you the complete Hermes experience — every slash command, mode, tool card, skin, and approval prompt — right in your editor, with VS Code-native affordances on top.
-
-### Why not just use a terminal?
-
-You can — and many people do. This extension makes it better:
-
-- **Sidebar session history** — browse and resume past conversations without leaving VS Code
-- **Multi-agent management** — start, track, and stop multiple Hermes agents from one place
-- **Profile switcher** — switch between Hermes profiles from the sidebar
-- **Clickable file links** — file paths in Hermes tool output are clickable and open in the editor
-- **Status bar** — see active model and running agent count at a glance
-- **One-click start** — no need to type `hermes --tui` every time
+![Hermes VS Code Extension](media/icon.png)
 
 ## Features
 
-```
-┌─ VS Code ──────────────────────────────────────────────────┐
-│                                                            │
-│  Activity Bar: Hermes icon                                 │
-│                                                            │
-│  ┌─ Sidebar ──────────────┐  ┌─ Terminal Panel ──────────┐ │
-│  │                        │  │                            │ │
-│  │ [+ New Agent]          │  │  ┌──────────────────────┐  │ │
-│  │ [🔄 Refresh]          │  │  │  hermes --tui        │  │ │
-│  │                        │  │  │                      │  │ │
-│  │ 📁 Sessions            │  │  │  > /yolo             │  │ │
-│  │  ├ fix-auth-bug (2h)   │  │  │  > /model            │  │ │
-│  │  ├ deploy-pipeline     │  │  │  > /history          │  │ │
-│  │  └ refactor-api (3d)  │  │  │  > /skills            │  │ │
-│  │                        │  │  │  ...                  │  │ │
-│  │ 👤 Profiles            │  │  └──────────────────────┘  │ │
-│  │  ├ default ● active    │  │                            │ │
-│  │  └ worker             │  │  All slash commands work    │ │
-│  │                        │  │  All modes work             │ │
-│  └────────────────────────┘  └────────────────────────────┘ │
-│                                                            │
-│  Status Bar: Hermes: 2 agents • GLM-5.2                    │
-└────────────────────────────────────────────────────────────┘
-```
+- **Full GUI Chat** — streaming message bubbles, real-time token rendering, no terminal required
+- **Workspace Context** — automatically passes your workspace directory and current file path to Hermes so it knows what you're working on
+- **Session History** — sidebar showing all past sessions with proper titles, message counts, and timestamps. Click to resume any session.
+- **Tool Call Cards** — tool calls appear as expandable cards showing arguments and results
+- **Thinking/Reasoning** — collapsible sections for reasoning tokens
+- **Slash Commands** — full support for `/yolo`, `/model`, `/reset`, `/skills`, etc.
+- **Profile Switching** — switch between Hermes profiles without leaving VS Code
+- **Auto Server Management** — automatically starts `hermes serve` if needed
+- **Right-Click Integration** — right-click any file to "Chat About Current File"
 
 ## Requirements
 
-- [Hermes Agent](https://github.com/NousResearch/hermes-agent) installed and on your PATH
-- VS Code 1.85+
+- [Hermes Agent](https://hermes-agent.nousresearch.com/) installed and on your PATH
+- The `hermes` CLI must be accessible from a terminal
 
 ## Installation
 
-### From VSIX (manual)
+### From VSIX
 
 ```bash
-code --install-extension hermes-agent-vscode-0.1.0.vsix
+code --install-extension hermes-agent-vscode-0.2.0.vsix
 ```
 
-### From source
+### From Source
 
 ```bash
 git clone https://github.com/varunsahni/hermes-vscode.git
@@ -69,38 +41,65 @@ npm run compile
 
 ## Usage
 
-1. **Start a new agent** — click the Hermes icon in the Activity Bar, then the `+` button, or run `Hermes: New Agent` from the command palette
-2. **Resume a session** — click any session in the sidebar Sessions list
-3. **Switch profiles** — click the profile name in the sidebar, or run `Hermes: Switch Profile`
-4. **Stop agents** — run `Hermes: Stop Active Agent` or `Hermes: Stop All Agents`
+1. The extension auto-starts the Hermes server on port 9119 if it's not already running.
+2. Open the chat panel with the command palette: `Hermes: Open Chat`
+3. Start typing. The extension automatically includes:
+   - Your **workspace directory** as the session's working directory
+   - Your **current file path** as context in each message
 
-All Hermes slash commands (`/yolo`, `/model`, `/reset`, `/history`, `/skills`, etc.) work exactly as they do in the terminal.
+### Commands
 
-## Configuration
+| Command | Description |
+|---------|-------------|
+| `Hermes: Open Chat` | Open the chat panel |
+| `Hermes: New Chat` | Start a new session |
+| `Hermes: Refresh Sessions` | Refresh the session list |
+| `Hermes: Switch Profile` | Switch Hermes profile |
+| `Hermes: Stop Server` | Stop the Hermes backend server |
+| `Hermes: Chat About Current File` | Send the current file as context |
+
+### Settings
 
 | Setting | Default | Description |
 |---------|---------|-------------|
-| `hermes.executablePath` | `hermes` | Path to the hermes executable |
-| `hermes.useTui` | `true` | Use the full TUI (--tui flag) |
-| `hermes.defaultProfile` | `""` | Default profile for new agents |
-| `hermes.autoOpenFileLinks` | `true` | Make file paths in terminal output clickable |
-| `hermes.sessionLimit` | `50` | Max sessions to show in sidebar |
+| `hermes.serverPort` | `9119` | Port for the Hermes backend |
+| `hermes.serverHost` | `127.0.0.1` | Host for the Hermes backend |
+| `hermes.autoStartServer` | `true` | Auto-start server if not running |
+| `hermes.defaultProfile` | `""` | Default Hermes profile |
+| `hermes.sessionLimit` | `50` | Max sessions in sidebar |
+| `hermes.includeFileContext` | `true` | Include current file path as context |
+| `hermes.includeWorkspaceContext` | `true` | Set workspace dir as session cwd |
 
-## How it works
+## Architecture
 
-This extension does **not** reimplement Hermes' chat UI. It spawns the real `hermes --tui` process inside a VS Code managed terminal, then adds VS Code-native integration layers on top:
+The extension connects to Hermes's JSON-RPC WebSocket API at `ws://127.0.0.1:9119/api/ws`. This is the same protocol used by the Hermes desktop app and web dashboard:
 
-- **Session sidebar** reads from `~/.hermes/sessions/` (via `hermes sessions list --json` or filesystem fallback)
-- **Profile sidebar** reads from `~/.hermes/profiles/`
-- **File link provider** uses regex patterns to detect file paths in terminal output and makes them clickable
-- **Status bar** reads model info from `~/.hermes/config.yaml`
+```
+VS Code Webview ←→ WebSocket ←→ Hermes Server (hermes serve)
+                                  ↓
+                              Hermes Agent (LLM + Tools)
+```
 
-This means you get 100% of Hermes features — nothing is lost, nothing is approximated.
+Key RPC methods used:
+- `session.create` — create a new chat session
+- `prompt.submit` — send a user message
+- `session.list` — list past sessions
+- `session.resume` — resume a past session
+- `slash.exec` — execute slash commands
+- `session.interrupt` — interrupt a running turn
+
+Streaming events:
+- `message.start` / `message.delta` / `message.complete` — assistant text
+- `thinking.delta` / `reasoning.available` — reasoning tokens
+- `tool.start` / `tool.delta` / `tool.end` — tool calls
+- `session.title` — auto-generated session title
+- `turn.end` — turn complete
 
 ## License
 
 MIT
 
-## Contributing
+## Acknowledgments
 
-PRs welcome! This is a community extension — not officially affiliated with Nous Research (yet).
+- [Hermes Agent](https://hermes-agent.nousresearch.com/) by [Nous Research](https://nousresearch.com/)
+- This extension is an unofficial community contribution and is not affiliated with Nous Research (yet!)
